@@ -30,6 +30,7 @@ return [
         // Production storefront.
         'https://naziabotanics.com',
         'https://www.naziabotanics.com',
+        'https://naz.biggbrodaclothing.com',
 
         // The Vercel deployment the custom domain points at.
         'https://nazia-botanics.vercel.app',

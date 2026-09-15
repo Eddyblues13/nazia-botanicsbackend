@@ -30,6 +30,12 @@ class DashboardController extends Controller
                 'revenue_this_month' => $revenueThisMonth,
                 'revenue_last_month' => $revenueLastMonth,
                 'revenue_change' => $this->percentageChange($revenueLastMonth, $revenueThisMonth),
+
+                // Profit is reported only over the lines that actually carry a
+                // recorded cost. `profit_coverage` says how much of revenue that
+                // is, so a margin built on two costed lines out of fifty is
+                // never mistaken for the whole picture.
+                ...$this->profit(),
                 'orders_total' => Order::count(),
                 'orders_pending' => Order::where('status', Order::STATUS_PENDING)->count(),
                 'orders_this_month' => Order::where('created_at', '>=', $thisMonth)->count(),
@@ -56,6 +62,39 @@ class DashboardController extends Controller
                 ),
             ],
         ]);
+    }
+
+    /**
+     * Cost, profit and margin across costed lines on revenue-bearing orders.
+     *
+     * Lines with a null `line_cost` are excluded rather than counted as free,
+     * which would inflate margin. The coverage figure exposes that exclusion
+     * instead of hiding it.
+     *
+     * @return array<string, int|float|null>
+     */
+    private function profit(): array
+    {
+        $base = \App\Models\OrderItem::query()
+            ->whereHas('order', fn ($q) => $q->whereIn('status', Order::REVENUE_STATUSES));
+
+        $costedRevenue = (int) (clone $base)->whereNotNull('line_cost')->sum('line_total');
+        $costTotal = (int) (clone $base)->whereNotNull('line_cost')->sum('line_cost');
+        $allRevenue = (int) (clone $base)->sum('line_total');
+
+        $profit = $costedRevenue - $costTotal;
+
+        return [
+            'cost_total' => $costTotal,
+            'profit_total' => $profit,
+            'profit_margin' => $costedRevenue > 0
+                ? round(($profit / $costedRevenue) * 100, 1)
+                : null,
+            // Share of revenue that has a cost behind it, 0–100.
+            'profit_coverage' => $allRevenue > 0
+                ? round(($costedRevenue / $allRevenue) * 100, 1)
+                : null,
+        ];
     }
 
     private function revenueSince(\DateTimeInterface $from): int

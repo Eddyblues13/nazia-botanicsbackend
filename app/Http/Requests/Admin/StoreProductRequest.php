@@ -31,6 +31,9 @@ class StoreProductRequest extends FormRequest
             'sizes' => ['required', 'array', 'min:1', 'max:10'],
             'sizes.*.label' => ['required', 'string', 'max:20'],
             'sizes.*.price' => ['required', 'integer', 'min:0', 'max:100000000'],
+            // Optional: what the size costs to make. Drives profit reporting,
+            // and stays null until the team has a figure they trust.
+            'sizes.*.cost' => ['nullable', 'integer', 'min:0', 'max:100000000'],
 
             'highlights' => ['nullable', 'array', 'max:6'],
             'highlights.*.icon' => ['required', 'string', 'max:20'],

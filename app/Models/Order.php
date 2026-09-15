@@ -54,6 +54,30 @@ class Order extends Model
         ];
     }
 
+    /**
+     * Cost across the lines that have one. Null when no line does, which keeps
+     * "never costed" separate from "cost nothing".
+     */
+    public function costTotal(): ?int
+    {
+        $costed = $this->items->whereNotNull('line_cost');
+
+        return $costed->isEmpty() ? null : (int) $costed->sum('line_cost');
+    }
+
+    /**
+     * Margin over the costed lines only — an order that is half costed reports
+     * the profit of that half rather than pretending about the rest.
+     */
+    public function profitTotal(): ?int
+    {
+        $costed = $this->items->whereNotNull('line_cost');
+
+        return $costed->isEmpty()
+            ? null
+            : (int) ($costed->sum('line_total') - $costed->sum('line_cost'));
+    }
+
     public function getRouteKeyName(): string
     {
         return 'reference';

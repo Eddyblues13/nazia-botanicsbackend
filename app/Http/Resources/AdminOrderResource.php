@@ -34,7 +34,21 @@ class AdminOrderResource extends JsonResource
                 'qty' => $item->qty,
                 'unit_price' => $item->unit_price,
                 'line_total' => $item->line_total,
+                // Null where no cost was recorded at the time of sale.
+                'unit_cost' => $item->unit_cost,
+                'line_cost' => $item->line_cost,
+                'profit' => $item->profit(),
             ])),
+
+            // Order-level margin, over the lines that carry a cost. Null when
+            // none of them do, so the dashboard can say "not tracked" instead
+            // of showing a profit equal to the full subtotal.
+            'cost_total' => $this->whenLoaded('items', fn () => $this->costTotal()),
+            'profit_total' => $this->whenLoaded('items', fn () => $this->profitTotal()),
+            'fully_costed' => $this->whenLoaded(
+                'items',
+                fn () => $this->items->every(fn ($i) => $i->line_cost !== null)
+            ),
         ];
     }
 }

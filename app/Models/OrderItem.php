@@ -15,6 +15,8 @@ class OrderItem extends Model
         'qty',
         'unit_price',
         'line_total',
+        'unit_cost',
+        'line_cost',
     ];
 
     protected function casts(): array
@@ -23,7 +25,19 @@ class OrderItem extends Model
             'qty' => 'integer',
             'unit_price' => 'integer',
             'line_total' => 'integer',
+            'unit_cost' => 'integer',
+            'line_cost' => 'integer',
         ];
+    }
+
+    /**
+     * Margin on this line, or null when the cost was never recorded — the
+     * caller has to decide what to do about an unknown rather than being
+     * handed a zero that looks like fact.
+     */
+    public function profit(): ?int
+    {
+        return $this->line_cost === null ? null : $this->line_total - $this->line_cost;
     }
 
     public function order(): BelongsTo

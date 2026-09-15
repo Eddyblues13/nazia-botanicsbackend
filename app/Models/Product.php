@@ -63,6 +63,22 @@ class Product extends Model
         return null;
     }
 
+    /**
+     * What one unit of a size costs to make, or null when no cost has been
+     * recorded for it. Null is deliberate — it keeps "we never entered a cost"
+     * distinguishable from "this size genuinely costs nothing".
+     */
+    public function costForSize(string $label): ?int
+    {
+        foreach ($this->sizes as $size) {
+            if (($size['label'] ?? null) === $label) {
+                return isset($size['cost']) ? (int) $size['cost'] : null;
+            }
+        }
+
+        return null;
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

@@ -56,6 +56,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Storefront URL
+    |--------------------------------------------------------------------------
+    |
+    | The Vite storefront lives on its own origin, so emails and links back to
+    | the shop are built from this rather than from APP_URL, which points at
+    | the API.
+    |
+    */
+
+    'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification inbox
+    |--------------------------------------------------------------------------
+    |
+    | Where storefront alerts (new orders, contact messages, waitlist signups)
+    | are sent. Falls back to the "from" address so alerts are never silently
+    | dropped when this is left unset.
+    |
+    */
+
+    'notify_email' => env('NOTIFY_EMAIL', env('MAIL_FROM_ADDRESS')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
