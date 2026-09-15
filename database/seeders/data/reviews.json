@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Adaeze O.",
+    "location": "Lagos",
+    "rating": 5,
+    "text": "After two months of the night ritual my edges are filling back in. The scent alone calms me down after a long day.",
+    "position": 1
+  },
+  {
+    "name": "Yemisi A.",
+    "location": "Ibadan",
+    "rating": 5,
+    "text": "I was losing so much hair after my baby. This oil slowed the shedding within weeks — my shower drain says thank you.",
+    "position": 2
+  },
+  {
+    "name": "Ngozi E.",
+    "location": "Enugu",
+    "rating": 4,
+    "text": "Light, absorbs well, no greasy residue under my wigs. I only wish the 4 oz lasted longer, because my whole family now uses it.",
+    "position": 3
+  },
+  {
+    "name": "Amina S.",
+    "location": "Kano",
+    "rating": 5,
+    "text": "The 5-minute massage has become my me-time. My scalp feels cooler and the itching is completely gone.",
+    "position": 4
+  },
+  {
+    "name": "Chiamaka N.",
+    "location": "Owerri",
+    "rating": 5,
+    "text": "My hairstylist noticed the new growth before I did. Now she asks what I use at every appointment.",
+    "position": 5
+  },
+  {
+    "name": "Folake B.",
+    "location": "Abeokuta",
+    "rating": 5,
+    "text": "I have 4C hair and most oils just sit on top. This one sinks in, and my strands feel stronger at the root.",
+    "position": 6
+  },
+  {
+    "name": "Ifeoma K.",
+    "location": "Abuja",
+    "rating": 4,
+    "text": "Bought it for the rosemary, stayed for the calm. My husband has started using it on his beard too.",
+    "position": 7
+  },
+  {
+    "name": "Temitope A.",
+    "location": "Port Harcourt",
+    "rating": 5,
+    "text": "Postpartum shedding had me in tears. Three weeks in, the handfuls of hair stopped. I am already on my second bottle.",
+    "position": 8
+  },
+  {
+    "name": "Zainab U.",
+    "location": "Kaduna",
+    "rating": 5,
+    "text": "Smells like a spa. My braids itch less and my scalp no longer flakes, even in harmattan season.",
+    "position": 9
+  },
+  {
+    "name": "Osato E.",
+    "location": "Benin City",
+    "rating": 5,
+    "text": "I do the Sunday ritual with my daughters now. Their hairlines are thriving and it has become our little tradition.",
+    "position": 10
+  }
+]
