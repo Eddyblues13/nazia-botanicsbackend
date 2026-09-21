@@ -8,6 +8,7 @@ use App\Http\Resources\AdminResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -40,6 +41,34 @@ class AuthController extends Controller
      * Changing a password invalidates every other session, keeping a stolen
      * token from outliving the password it was issued against.
      */
+    /**
+     * The signed-in admin editing their own name and email.
+     *
+     * Deliberately separate from the Team screen: this changes only the caller,
+     * so it needs no owner role, and it cannot touch `role` or `is_active` —
+     * a manager must not be able to promote themselves by editing their own
+     * profile.
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $admin = $request->user();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => [
+                'required', 'email', 'max:180',
+                Rule::unique('admins', 'email')->ignore($admin->getKey()),
+            ],
+        ]);
+
+        $admin->update($data);
+
+        return response()->json([
+            'message' => 'Profile updated.',
+            'data' => new AdminResource($admin->fresh()),
+        ]);
+    }
+
     public function updatePassword(Request $request): JsonResponse
     {
         $data = $request->validate([

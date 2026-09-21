@@ -83,4 +83,47 @@ class AdminAuthTest extends TestCase
     {
         $this->actingAs($this->admin(), 'admin')->getJson('/api/admin/team')->assertOk();
     }
+
+    public function test_an_admin_can_edit_their_own_name_and_email(): void
+    {
+        $admin = $this->admin(['name' => 'Old Name', 'email' => 'old@naziabotanics.com']);
+
+        $this->actingAs($admin, 'admin')
+            ->putJson('/api/admin/profile', [
+                'name' => 'New Name',
+                'email' => 'new@naziabotanics.com',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'New Name');
+
+        $this->assertDatabaseHas('admins', [
+            'id' => $admin->id, 'name' => 'New Name', 'email' => 'new@naziabotanics.com',
+        ]);
+    }
+
+    public function test_editing_a_profile_cannot_change_role_or_active_state(): void
+    {
+        $manager = $this->admin(['role' => 'manager', 'email' => 'mgr@naziabotanics.com']);
+
+        // A manager posting a role alongside their name must not be promoted.
+        $this->actingAs($manager, 'admin')
+            ->putJson('/api/admin/profile', [
+                'name' => 'Sneaky', 'email' => 'mgr@naziabotanics.com',
+                'role' => 'owner', 'is_active' => true,
+            ])
+            ->assertOk();
+
+        $this->assertSame('manager', $manager->fresh()->role);
+    }
+
+    public function test_a_profile_cannot_take_another_admins_email(): void
+    {
+        $this->admin(['email' => 'taken@naziabotanics.com']);
+        $other = $this->admin(['email' => 'mine@naziabotanics.com']);
+
+        $this->actingAs($other, 'admin')
+            ->putJson('/api/admin/profile', ['name' => 'Whoever', 'email' => 'taken@naziabotanics.com'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('email');
+    }
 }
