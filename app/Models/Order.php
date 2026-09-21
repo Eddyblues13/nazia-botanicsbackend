@@ -65,7 +65,7 @@ class Order extends Model
         'note',
         'subtotal',
         'status',
-        'delivery_state',
+        'delivery_zone',
         'delivery_fee',
         'delivery_period',
         'total',

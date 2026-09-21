@@ -36,12 +36,12 @@ class PaystackCheckoutTest extends TestCase
         ]);
 
         DeliveryZone::create([
-            'state' => 'Lagos', 'fee' => 3000,
+            'name' => 'Mainland 1', 'fee' => 3000,
             'delivery_period' => '1-2 business days', 'is_active' => true,
         ]);
 
         DeliveryZone::create([
-            'state' => 'Kano', 'fee' => 5000,
+            'name' => 'Island 1', 'fee' => 5000,
             'delivery_period' => '3-5 business days', 'is_active' => false,
         ]);
     }
@@ -53,7 +53,7 @@ class PaystackCheckoutTest extends TestCase
             'customer_phone' => '+2348000000000',
             'customer_email' => 'ada@example.com',
             'delivery_address' => '1 Test Road, Lekki',
-            'delivery_state' => 'Lagos',
+            'delivery_zone' => 'Mainland 1',
             'items' => [['product_id' => 'growth-oil', 'size' => '4 oz', 'qty' => 2]],
         ], $overrides);
     }
@@ -84,9 +84,9 @@ class PaystackCheckoutTest extends TestCase
 
     public function test_it_refuses_a_state_the_shop_does_not_deliver_to(): void
     {
-        $this->postJson('/api/orders', $this->payload(['delivery_state' => 'Kano']))
+        $this->postJson('/api/orders', $this->payload(['delivery_zone' => 'Kano']))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('delivery_state');
+            ->assertJsonValidationErrors('delivery_zone');
 
         $this->assertDatabaseCount('orders', 0);
     }
@@ -185,7 +185,7 @@ class PaystackCheckoutTest extends TestCase
             $this->assertStringContainsString('50,000', $html, "{$class} is missing the subtotal");
             $this->assertStringContainsString('3,000', $html, "{$class} is missing the delivery fee");
             $this->assertStringContainsString('53,000', $html, "{$class} is missing the total");
-            $this->assertStringContainsString('Lagos', $html, "{$class} is missing the delivery state");
+            $this->assertStringContainsString('Mainland 1', $html, "{$class} is missing the delivery zone");
 
             // The old copy promised a delivery quote that now arrives upfront.
             $this->assertStringNotContainsString('Delivery is quoted when we confirm', $html);

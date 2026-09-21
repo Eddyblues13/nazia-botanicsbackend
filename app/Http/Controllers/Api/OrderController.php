@@ -8,6 +8,7 @@ use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\DeliveryZone;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\Paystack;
 use App\Support\OrderPayments;
 use Illuminate\Http\JsonResponse;
@@ -74,11 +75,11 @@ class OrderController extends Controller
 
         // Delivery is priced from the zone table, so the customer cannot post
         // their own fee and the promise shown at checkout is the one charged.
-        $zone = DeliveryZone::query()->active()->where('state', $data['delivery_state'])->first();
+        $zone = DeliveryZone::query()->active()->where('name', $data['delivery_zone'])->first();
 
         if (! $zone) {
             throw ValidationException::withMessages([
-                'delivery_state' => 'We do not deliver to that state yet.',
+                'delivery_zone' => 'We do not deliver to that area yet.',
             ]);
         }
 
@@ -89,6 +90,24 @@ class OrderController extends Controller
         // in — null for most orders. Read from the token rather than from the
         // request body, which a customer could put any id in.
         $userId = auth('customer')->id();
+        $newAccount = null;
+
+        // "Create an account?" at checkout. Skipped when already signed in,
+        // and an address that is already registered is not an error worth
+        // stopping a sale for — the order simply stays a guest order.
+        if ($userId === null && ($data['create_account'] ?? false) && filled($data['password'] ?? null)) {
+            $existing = User::where('email', $data['customer_email'])->exists();
+
+            if (! $existing) {
+                $newAccount = User::create([
+                    'name' => $data['customer_name'],
+                    'email' => $data['customer_email'],
+                    'password' => $data['password'],
+                ]);
+
+                $userId = $newAccount->id;
+            }
+        }
 
         $order = DB::transaction(function () use ($data, $lines, $subtotal, $zone, $deliveryFee, $total, $userId) {
             $order = Order::create([
@@ -103,7 +122,7 @@ class OrderController extends Controller
                 'status' => Order::STATUS_PENDING,
                 // Copied onto the order, not joined, so re-pricing a zone
                 // later never rewrites what a past customer was charged.
-                'delivery_state' => $zone->state,
+                'delivery_zone' => $zone->name,
                 'delivery_fee' => $deliveryFee,
                 'delivery_period' => $zone->delivery_period,
                 'total' => $total,
@@ -138,6 +157,16 @@ class OrderController extends Controller
                 'payment' => [
                     'authorization_url' => $transaction['authorization_url'],
                     'reference' => $order->payment_reference,
+                ],
+                // Present only when an account was just created, so the
+                // storefront can sign them in without a second round trip.
+                'account' => $newAccount === null ? null : [
+                    'token' => $newAccount->createToken('storefront')->plainTextToken,
+                    'user' => [
+                        'id' => $newAccount->id,
+                        'name' => $newAccount->name,
+                        'email' => $newAccount->email,
+                    ],
                 ],
             ])
             ->response()

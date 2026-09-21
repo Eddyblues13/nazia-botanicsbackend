@@ -24,7 +24,7 @@ class OrderTest extends TestCase
         config(['services.paystack.secret' => 'sk_test_fake']);
 
         DeliveryZone::create([
-            'state' => 'Lagos',
+            'name' => 'Mainland 1',
             'fee' => 3000,
             'delivery_period' => '1-2 business days',
             'is_active' => true,
@@ -63,7 +63,7 @@ class OrderTest extends TestCase
             'customer_phone' => '+2348055555555',
             'customer_email' => 'ada@example.com',
             'delivery_address' => '12 Awolowo Road, Lagos',
-            'delivery_state' => 'Lagos',
+            'delivery_zone' => 'Mainland 1',
             'items' => $items,
         ];
     }

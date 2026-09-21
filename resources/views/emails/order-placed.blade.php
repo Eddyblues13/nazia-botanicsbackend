@@ -30,7 +30,7 @@
       <td align="right" style="padding:12px 0 4px;color:#6d6d6d;">&#8358;{{ number_format($order->subtotal) }}</td>
     </tr>
     <tr>
-      <td style="padding:4px 0;color:#6d6d6d;">Delivery{{ $order->delivery_state ? ' · '.$order->delivery_state : '' }}</td>
+      <td style="padding:4px 0;color:#6d6d6d;">Delivery{{ $order->delivery_zone ? ' · '.$order->delivery_zone : '' }}</td>
       <td align="right" style="padding:4px 0;color:#6d6d6d;">&#8358;{{ number_format($order->delivery_fee) }}</td>
     </tr>
     <tr>

@@ -25,7 +25,7 @@ class DeliveryZoneTest extends TestCase
     private function zone(array $overrides = []): DeliveryZone
     {
         return DeliveryZone::create(array_merge([
-            'state' => 'Lagos',
+            'name' => 'Mainland 1',
             'fee' => 3000,
             'delivery_period' => '1-2 business days',
             'is_active' => true,
@@ -36,14 +36,14 @@ class DeliveryZoneTest extends TestCase
     {
         $this->actingAs($this->admin(), 'admin')
             ->postJson('/api/admin/delivery-zones', [
-                'state' => 'Oyo', 'fee' => 4500,
+                'name' => 'Oyo', 'fee' => 4500,
                 'delivery_period' => '2-4 business days', 'is_active' => true,
             ])
             ->assertCreated()
-            ->assertJsonPath('data.state', 'Oyo')
+            ->assertJsonPath('data.name', 'Oyo')
             ->assertJsonPath('data.fee', 4500);
 
-        $this->assertDatabaseHas('delivery_zones', ['state' => 'Oyo', 'fee' => 4500]);
+        $this->assertDatabaseHas('delivery_zones', ['name' => 'Oyo', 'fee' => 4500]);
     }
 
     public function test_an_admin_can_update_and_delete_a_zone(): void
@@ -53,7 +53,7 @@ class DeliveryZoneTest extends TestCase
 
         $this->actingAs($admin, 'admin')
             ->putJson("/api/admin/delivery-zones/{$zone->id}", [
-                'state' => 'Lagos', 'fee' => 3500,
+                'name' => 'Mainland 1', 'fee' => 3500,
                 'delivery_period' => 'Same day in Lekki', 'is_active' => true,
             ])
             ->assertOk()
@@ -72,11 +72,11 @@ class DeliveryZoneTest extends TestCase
 
         $this->actingAs($this->admin(), 'admin')
             ->postJson('/api/admin/delivery-zones', [
-                'state' => 'Lagos', 'fee' => 1000,
+                'name' => 'Mainland 1', 'fee' => 1000,
                 'delivery_period' => 'x', 'is_active' => true,
             ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('state');
+            ->assertJsonValidationErrors('name');
     }
 
     public function test_a_zone_keeps_its_own_state_when_edited(): void
@@ -86,7 +86,7 @@ class DeliveryZoneTest extends TestCase
         // Saving a zone without renaming it must not trip its own unique rule.
         $this->actingAs($this->admin(), 'admin')
             ->putJson("/api/admin/delivery-zones/{$zone->id}", [
-                'state' => 'Lagos', 'fee' => 9000,
+                'name' => 'Mainland 1', 'fee' => 9000,
                 'delivery_period' => '1 day', 'is_active' => false,
             ])
             ->assertOk();
@@ -98,14 +98,14 @@ class DeliveryZoneTest extends TestCase
 
         $this->actingAs($admin, 'admin')
             ->postJson('/api/admin/delivery-zones', [
-                'state' => 'Free Town', 'fee' => 0,
+                'name' => 'Free Town', 'fee' => 0,
                 'delivery_period' => 'Collected in person', 'is_active' => true,
             ])
             ->assertCreated();
 
         $this->actingAs($admin, 'admin')
             ->postJson('/api/admin/delivery-zones', [
-                'state' => 'Nowhere', 'fee' => -100,
+                'name' => 'Nowhere', 'fee' => -100,
                 'delivery_period' => 'x', 'is_active' => true,
             ])
             ->assertStatus(422)
@@ -114,23 +114,23 @@ class DeliveryZoneTest extends TestCase
 
     public function test_the_storefront_lists_only_active_zones(): void
     {
-        $this->zone(['state' => 'Lagos', 'is_active' => true]);
-        $this->zone(['state' => 'Kano', 'is_active' => false]);
+        $this->zone(['name' => 'Mainland 1', 'is_active' => true]);
+        $this->zone(['name' => 'Island 1', 'is_active' => false]);
 
         $states = $this->getJson('/api/delivery-zones')
             ->assertOk()
-            ->json('data.*.state');
+            ->json('data.*.name');
 
         // An inactive zone has no agreed price, so offering it at checkout
         // would promise a delivery nobody has costed.
-        $this->assertSame(['Lagos'], $states);
+        $this->assertSame(['Mainland 1'], $states);
     }
 
     public function test_zones_are_not_public_to_edit(): void
     {
         $zone = $this->zone();
 
-        $this->postJson('/api/admin/delivery-zones', ['state' => 'Hacked'])->assertUnauthorized();
+        $this->postJson('/api/admin/delivery-zones', ['name' => 'Hacked'])->assertUnauthorized();
         $this->deleteJson("/api/admin/delivery-zones/{$zone->id}")->assertUnauthorized();
 
         $this->assertDatabaseHas('delivery_zones', ['id' => $zone->id]);

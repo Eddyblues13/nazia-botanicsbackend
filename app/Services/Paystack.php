@@ -66,7 +66,7 @@ class Paystack
                     'order_reference' => $order->reference,
                     'customer_name' => $order->customer_name,
                     'customer_phone' => $order->customer_phone,
-                    'delivery_state' => $order->delivery_state,
+                    'delivery_zone' => $order->delivery_zone,
                 ],
             ]);
 

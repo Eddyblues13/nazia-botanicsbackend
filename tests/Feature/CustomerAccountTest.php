@@ -31,7 +31,7 @@ class CustomerAccountTest extends TestCase
         ]);
 
         DeliveryZone::create([
-            'state' => 'Lagos', 'fee' => 3000,
+            'name' => 'Mainland 1', 'fee' => 3000,
             'delivery_period' => '1-2 business days', 'is_active' => true,
         ]);
 
@@ -45,7 +45,7 @@ class CustomerAccountTest extends TestCase
         return array_merge([
             'customer_name' => 'Ada Obi', 'customer_phone' => '+2348000000000',
             'customer_email' => 'ada@example.com', 'delivery_address' => '1 Test Road',
-            'delivery_state' => 'Lagos',
+            'delivery_zone' => 'Mainland 1',
             'items' => [['product_id' => 'growth-oil', 'size' => '4 oz', 'qty' => 1]],
         ], $o);
     }
@@ -146,5 +146,83 @@ class CustomerAccountTest extends TestCase
     {
         $this->getJson('/api/account/orders')->assertUnauthorized();
         $this->getJson('/api/account/me')->assertUnauthorized();
+    }
+
+    public function test_a_guest_order_can_be_claimed_with_its_reference_and_a_matching_email(): void
+    {
+        $this->postJson('/api/orders', $this->payload())->assertCreated();
+        $order = Order::first();
+        $this->assertNull($order->user_id);
+
+        // Same address the order was placed with.
+        $user = User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'secret-password']);
+
+        $this->actingAs($user, 'customer')
+            ->postJson('/api/account/orders/claim', ['reference' => $order->reference])
+            ->assertOk();
+
+        $this->assertSame($user->id, $order->fresh()->user_id);
+
+        $this->actingAs($user, 'customer')->getJson('/api/account/orders')
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_a_reference_alone_does_not_claim_someone_elses_order(): void
+    {
+        $this->postJson('/api/orders', $this->payload())->assertCreated();
+        $order = Order::first();
+
+        // Knows the reference, but the order was placed with a different email.
+        $attacker = User::create(['name' => 'Mal', 'email' => 'mal@example.com', 'password' => 'secret-password']);
+
+        $this->actingAs($attacker, 'customer')
+            ->postJson('/api/account/orders/claim', ['reference' => $order->reference])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('reference');
+
+        $this->assertNull($order->fresh()->user_id);
+    }
+
+    public function test_an_order_already_on_another_account_cannot_be_taken(): void
+    {
+        $ada = User::create(['name' => 'Ada', 'email' => 'ada@example.com', 'password' => 'secret-password']);
+        $this->actingAs($ada, 'customer')->postJson('/api/orders', $this->payload())->assertCreated();
+        $order = Order::first();
+
+        // Same email on the order, but it already belongs to Ada's account.
+        $other = User::create(['name' => 'Other', 'email' => 'other@example.com', 'password' => 'secret-password']);
+
+        $this->actingAs($other, 'customer')
+            ->postJson('/api/account/orders/claim', ['reference' => $order->reference])
+            ->assertStatus(422);
+
+        $this->assertSame($ada->id, $order->fresh()->user_id);
+    }
+
+    public function test_a_wrong_reference_says_nothing_about_whether_it_exists(): void
+    {
+        $this->postJson('/api/orders', $this->payload())->assertCreated();
+        $real = Order::first()->reference;
+
+        $user = User::create(['name' => 'Mal', 'email' => 'mal@example.com', 'password' => 'secret-password']);
+
+        $existsButNotTheirs = $this->actingAs($user, 'customer')
+            ->postJson('/api/account/orders/claim', ['reference' => $real])
+            ->assertStatus(422)->json('errors.reference.0');
+
+        $doesNotExist = $this->actingAs($user, 'customer')
+            ->postJson('/api/account/orders/claim', ['reference' => 'NB-000000-ZZZZ'])
+            ->assertStatus(422)->json('errors.reference.0');
+
+        // Otherwise this becomes a way of testing which references are real.
+        $this->assertSame($existsButNotTheirs, $doesNotExist);
+    }
+
+    public function test_claiming_requires_an_account(): void
+    {
+        $this->postJson('/api/orders', $this->payload())->assertCreated();
+
+        $this->postJson('/api/account/orders/claim', ['reference' => Order::first()->reference])
+            ->assertUnauthorized();
     }
 }

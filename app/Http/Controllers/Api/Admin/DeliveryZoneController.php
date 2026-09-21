@@ -53,10 +53,15 @@ class DeliveryZoneController extends Controller
     private function rules(?DeliveryZone $zone = null): array
     {
         return [
-            'state' => [
-                'required', 'string', 'max:60',
-                Rule::unique('delivery_zones', 'state')->ignore($zone?->getKey()),
+            'name' => [
+                'required', 'string', 'max:80',
+                Rule::unique('delivery_zones', 'name')->ignore($zone?->getKey()),
             ],
+            // The areas this zone covers. Sent as a list; the dashboard lets
+            // the shop type them comma separated.
+            'areas' => ['nullable', 'array', 'max:80'],
+            'areas.*' => ['string', 'max:60'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
             // Whole naira, like every other price here. Free delivery is a
             // legitimate choice, so zero is allowed.
             'fee' => ['required', 'integer', 'min:0', 'max:10000000'],
@@ -69,10 +74,12 @@ class DeliveryZoneController extends Controller
     {
         return [
             'id' => $zone->id,
-            'state' => $zone->state,
+            'name' => $zone->name,
+            'areas' => $zone->areas ?? [],
             'fee' => $zone->fee,
             'delivery_period' => $zone->delivery_period,
             'is_active' => $zone->is_active,
+            'sort_order' => $zone->sort_order,
         ];
     }
 }

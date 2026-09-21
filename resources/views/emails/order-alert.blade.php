@@ -7,7 +7,7 @@
     <tr><td style="padding:4px 0;color:#6d6d6d;">Phone</td><td style="padding:4px 0;">{{ $order->customer_phone }}</td></tr>
     <tr><td style="padding:4px 0;color:#6d6d6d;">Email</td><td style="padding:4px 0;">{{ $order->customer_email ?? '—' }}</td></tr>
     <tr><td style="padding:4px 0;color:#6d6d6d;">Deliver to</td><td style="padding:4px 0;">{{ $order->delivery_address }}</td></tr>
-    <tr><td style="padding:4px 0;color:#6d6d6d;">State</td><td style="padding:4px 0;">{{ $order->delivery_state }} &middot; &#8358;{{ number_format($order->delivery_fee) }} &middot; {{ $order->delivery_period }}</td></tr>
+    <tr><td style="padding:4px 0;color:#6d6d6d;">Zone</td><td style="padding:4px 0;">{{ $order->delivery_zone }} &middot; &#8358;{{ number_format($order->delivery_fee) }} &middot; {{ $order->delivery_period }}</td></tr>
     <tr><td style="padding:4px 0;color:#6d6d6d;">Paid</td><td style="padding:4px 0;">&#8358;{{ number_format($order->amount_paid) }}{{ $order->payment_channel ? ' via '.$order->payment_channel : '' }}</td></tr>
     @if ($order->note)
       <tr><td style="padding:4px 0;color:#6d6d6d;">Note</td><td style="padding:4px 0;">{{ $order->note }}</td></tr>

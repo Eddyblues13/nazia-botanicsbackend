@@ -20,7 +20,8 @@ class DeliveryZoneController extends Controller
         $zones = DeliveryZone::query()->active()->ordered()->get();
 
         return JsonResource::collection($zones->map(fn (DeliveryZone $zone) => [
-            'state' => $zone->state,
+            'name' => $zone->name,
+            'areas' => $zone->areas ?? [],
             'fee' => $zone->fee,
             'delivery_period' => $zone->delivery_period,
         ]));

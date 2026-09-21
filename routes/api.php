@@ -43,7 +43,7 @@ Route::post('reviews', [ReviewController::class, 'store'])->middleware('throttle
 Route::get('delivery-zones', [DeliveryZoneController::class, 'index']);
 
 Route::post('orders', [OrderController::class, 'store'])->middleware('throttle:10,1');
-Route::get('orders/{order}', [OrderController::class, 'show']);
+Route::get('orders/{order}', [OrderController::class, 'show'])->middleware('throttle:30,1');
 // Called when the customer returns from Paystack. Rate-limited because it is
 // public and reaches out to Paystack on each call.
 Route::post('orders/{order}/verify-payment', [OrderController::class, 'verifyPayment'])
@@ -76,6 +76,8 @@ Route::prefix('account')->group(function () {
         Route::put('profile', [CustomerAuthController::class, 'updateProfile']);
         Route::put('password', [CustomerAuthController::class, 'updatePassword']);
         Route::get('orders', [CustomerOrderController::class, 'index']);
+        Route::post('orders/claim', [CustomerOrderController::class, 'claim'])
+            ->middleware('throttle:10,1');
     });
 });
 

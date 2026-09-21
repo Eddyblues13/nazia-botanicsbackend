@@ -50,7 +50,10 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Tokens stop working after 30 days. With no expiry a token copied from a
+    // shared or stolen device would stay valid for ever; this bounds that
+    // without signing people out mid-shop.
+    'expiration' => (int) env('SANCTUM_TOKEN_MINUTES', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

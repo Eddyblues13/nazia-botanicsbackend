@@ -19,7 +19,7 @@ class AdminOrderResource extends JsonResource
             'delivery_address' => $this->delivery_address,
             'note' => $this->note,
             'subtotal' => $this->subtotal,
-            'delivery_state' => $this->delivery_state,
+            'delivery_zone' => $this->delivery_zone,
             'delivery_fee' => $this->delivery_fee,
             'delivery_period' => $this->delivery_period,
             'total' => $this->total,
