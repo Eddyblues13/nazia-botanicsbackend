@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -84,8 +85,14 @@ class OrderController extends Controller
         $deliveryFee = $zone->fee;
         $total = $subtotal + $deliveryFee;
 
-        $order = DB::transaction(function () use ($data, $lines, $subtotal, $zone, $deliveryFee, $total) {
+        // Checkout is open to guests, so this is whoever happens to be signed
+        // in — null for most orders. Read from the token rather than from the
+        // request body, which a customer could put any id in.
+        $userId = auth('customer')->id();
+
+        $order = DB::transaction(function () use ($data, $lines, $subtotal, $zone, $deliveryFee, $total, $userId) {
             $order = Order::create([
+                'user_id' => $userId,
                 'reference' => Order::generateReference(),
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
@@ -117,7 +124,7 @@ class OrderController extends Controller
         // Nothing is announced yet. The confirmation emails wait until the
         // money actually arrives, in OrderPayments::markPaid().
         try {
-            $transaction = $paystack->initialize($order, $this->callbackUrl($order));
+            $transaction = $paystack->initialize($order, $this->callbackUrl($order, $request));
         } catch (RuntimeException $e) {
             OrderPayments::markFailed($order);
 
@@ -141,10 +148,79 @@ class OrderController extends Controller
      * Where Paystack sends the customer once they are done.
      *
      * Their order page, which asks us to verify on arrival.
+     *
+     * FRONTEND_URL ships as http://localhost:5173, so a deployment that never
+     * changed it would take a paying customer to localhost and leave them with
+     * nothing — having already been charged. When the configured address is a
+     * loopback one but the request came from a site already trusted by CORS,
+     * that origin is used instead and the misconfiguration is logged. Only
+     * origins on the existing allowlist are accepted, so this cannot be used to
+     * point the callback somewhere of an attacker's choosing.
      */
-    private function callbackUrl(Order $order): string
+    private function callbackUrl(Order $order, Request $request): string
     {
-        return rtrim(config('app.frontend_url'), '/')."/order/{$order->reference}";
+        $base = rtrim((string) config('app.frontend_url'), '/');
+
+        if ($this->isLoopback($base)) {
+            $origin = $this->trustedOrigin($request);
+
+            if ($origin !== null) {
+                Log::warning('FRONTEND_URL points at localhost; using the request origin for the Paystack callback', [
+                    'configured' => $base,
+                    'used' => $origin,
+                ]);
+
+                $base = $origin;
+            }
+        }
+
+        return $base."/order/{$order->reference}";
+    }
+
+    private function isLoopback(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST) ?: '';
+
+        return in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true);
+    }
+
+    /**
+     * The request's own origin, but only when CORS already trusts it.
+     */
+    private function trustedOrigin(Request $request): ?string
+    {
+        $raw = $request->headers->get('origin') ?: $request->headers->get('referer');
+
+        if (blank($raw)) {
+            return null;
+        }
+
+        $parts = parse_url($raw);
+
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $origin = $parts['scheme'].'://'.$parts['host']
+            .(isset($parts['port']) ? ':'.$parts['port'] : '');
+
+        if ($this->isLoopback($origin)) {
+            return null;
+        }
+
+        $allowed = (array) config('cors.allowed_origins', []);
+
+        if (in_array($origin, $allowed, true)) {
+            return $origin;
+        }
+
+        foreach ((array) config('cors.allowed_origins_patterns', []) as $pattern) {
+            if (@preg_match($pattern, $origin) === 1) {
+                return $origin;
+            }
+        }
+
+        return null;
     }
 
     /**

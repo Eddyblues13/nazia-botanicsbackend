@@ -50,6 +50,13 @@ return [
             'driver' => 'sanctum',
             'provider' => 'admins',
         ],
+
+        // Shoppers. Kept apart from the staff guard so a customer token can
+        // never reach the dashboard, whatever route it is presented to.
+        'customer' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*

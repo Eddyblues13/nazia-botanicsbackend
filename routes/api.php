@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\Admin\WaitlistController as AdminWaitlistController
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\NewsletterController;
+use App\Http\Controllers\Api\Customer\AuthController as CustomerAuthController;
+use App\Http\Controllers\Api\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Api\DeliveryZoneController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaystackWebhookController;
@@ -57,7 +59,30 @@ Route::post('newsletter', [NewsletterController::class, 'store'])->middleware('t
 
 /*
 |--------------------------------------------------------------------------
-| Admin dashboard
+| Customer accounts
+|--------------------------------------------------------------------------
+|
+| Shoppers, on their own guard. Checkout stays open to guests — an account
+| only adds a record of what someone has ordered before.
+|
+*/
+Route::prefix('account')->group(function () {
+    Route::post('register', [CustomerAuthController::class, 'register'])->middleware('throttle:5,1');
+    Route::post('login', [CustomerAuthController::class, 'login'])->middleware('throttle:10,1');
+
+    Route::middleware('auth:customer')->group(function () {
+        Route::get('me', [CustomerAuthController::class, 'me']);
+        Route::post('logout', [CustomerAuthController::class, 'logout']);
+        Route::put('profile', [CustomerAuthController::class, 'updateProfile']);
+        Route::put('password', [CustomerAuthController::class, 'updatePassword']);
+        Route::get('orders', [CustomerOrderController::class, 'index']);
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin
+ dashboard
 |--------------------------------------------------------------------------
 */
 

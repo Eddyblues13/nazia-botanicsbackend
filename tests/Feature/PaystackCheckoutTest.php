@@ -192,6 +192,57 @@ class PaystackCheckoutTest extends TestCase
         }
     }
 
+    public function test_the_callback_uses_the_configured_frontend_url(): void
+    {
+        Mail::fake();
+        config(['app.frontend_url' => 'https://naziabotanics.com']);
+        Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true, 'data' => ['authorization_url' => 'https://checkout.paystack.com/x'],
+        ])]);
+
+        $this->postJson('/api/orders', $this->payload())->assertCreated();
+
+        Http::assertSent(fn ($r) => str_starts_with($r['callback_url'], 'https://naziabotanics.com/order/'));
+    }
+
+    public function test_a_live_site_is_not_sent_to_localhost_when_frontend_url_was_never_changed(): void
+    {
+        Mail::fake();
+        // The value the example file ships with, left behind on a deployment.
+        config(['app.frontend_url' => 'http://localhost:5173']);
+        config(['cors.allowed_origins' => ['https://naziabotanics.com']]);
+
+        Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true, 'data' => ['authorization_url' => 'https://checkout.paystack.com/x'],
+        ])]);
+
+        $this->withHeader('Origin', 'https://naziabotanics.com')
+            ->postJson('/api/orders', $this->payload())
+            ->assertCreated();
+
+        // The customer is returned to the site they were actually shopping on.
+        Http::assertSent(fn ($r) => str_starts_with($r['callback_url'], 'https://naziabotanics.com/order/'));
+    }
+
+    public function test_an_untrusted_origin_cannot_redirect_the_callback(): void
+    {
+        Mail::fake();
+        config(['app.frontend_url' => 'http://localhost:5173']);
+        config(['cors.allowed_origins' => ['https://naziabotanics.com']]);
+        config(['cors.allowed_origins_patterns' => []]);
+
+        Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true, 'data' => ['authorization_url' => 'https://checkout.paystack.com/x'],
+        ])]);
+
+        $this->withHeader('Origin', 'https://evil.example.com')
+            ->postJson('/api/orders', $this->payload())
+            ->assertCreated();
+
+        // An origin we do not already trust is ignored, not followed.
+        Http::assertSent(fn ($r) => ! str_contains($r['callback_url'], 'evil.example.com'));
+    }
+
     private function makePendingOrder(): Order
     {
         Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
