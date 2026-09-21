@@ -4,15 +4,39 @@ namespace Tests\Feature;
 
 use App\Mail\OrderAlert;
 use App\Mail\OrderPlaced;
+use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\Product;
+use App\Support\OrderPayments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class OrderTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['services.paystack.secret' => 'sk_test_fake']);
+
+        DeliveryZone::create([
+            'state' => 'Lagos',
+            'fee' => 3000,
+            'delivery_period' => '1-2 business days',
+            'is_active' => true,
+        ]);
+
+        // Every order now starts a payment, so the call out to Paystack is
+        // stubbed rather than made.
+        Http::fake(['api.paystack.co/transaction/initialize' => Http::response([
+            'status' => true,
+            'data' => ['authorization_url' => 'https://checkout.paystack.com/test'],
+        ])]);
+    }
 
     private function product(array $overrides = []): Product
     {
@@ -39,6 +63,7 @@ class OrderTest extends TestCase
             'customer_phone' => '+2348055555555',
             'customer_email' => 'ada@example.com',
             'delivery_address' => '12 Awolowo Road, Lagos',
+            'delivery_state' => 'Lagos',
             'items' => $items,
         ];
     }
@@ -103,7 +128,7 @@ class OrderTest extends TestCase
         $this->assertDatabaseHas('order_items', ['size' => '4 oz', 'unit_cost' => null, 'line_cost' => null]);
     }
 
-    public function test_it_emails_the_customer_and_the_team(): void
+    public function test_it_emails_the_customer_and_the_team_once_the_payment_lands(): void
     {
         Mail::fake();
         $this->product();
@@ -112,19 +137,33 @@ class OrderTest extends TestCase
             ['product_id' => 'growth-oil', 'size' => '4 oz', 'qty' => 1],
         ]))->assertCreated();
 
+        // Placing the order announces nothing — it is not paid for yet.
+        Mail::assertNothingSent();
+
+        OrderPayments::markPaid(Order::query()->latest('id')->firstOrFail(), [
+            'amount' => 2800000, 'channel' => 'card',
+        ]);
+
         Mail::assertSent(OrderPlaced::class, fn ($m) => $m->hasTo('ada@example.com'));
         Mail::assertSent(OrderAlert::class);
     }
 
-    public function test_a_failing_mailer_does_not_lose_the_order(): void
+    public function test_a_failing_mailer_does_not_lose_the_payment(): void
     {
         $this->product();
-        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP down'));
 
         $this->postJson('/api/orders', $this->payload([
             ['product_id' => 'growth-oil', 'size' => '4 oz', 'qty' => 1],
         ]))->assertCreated();
 
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP down'));
+
+        // The money has arrived; a dead mail server must not undo that.
+        OrderPayments::markPaid(Order::query()->latest('id')->firstOrFail(), [
+            'amount' => 2800000, 'channel' => 'card',
+        ]);
+
         $this->assertSame(1, Order::count());
+        $this->assertSame(Order::PAYMENT_PAID, Order::query()->latest('id')->firstOrFail()->payment_status);
     }
 }

@@ -18,6 +18,12 @@ class OrderResource extends JsonResource
             'delivery_address' => $this->delivery_address,
             'note' => $this->note,
             'subtotal' => $this->subtotal,
+            'delivery_state' => $this->delivery_state,
+            'delivery_fee' => $this->delivery_fee,
+            'delivery_period' => $this->delivery_period,
+            'total' => $this->total,
+            'payment_status' => $this->payment_status,
+            'paid_at' => $this->paid_at?->toIso8601String(),
             'placed_at' => $this->created_at?->toIso8601String(),
             'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($item) => [
                 'product_id' => $item->product_slug,

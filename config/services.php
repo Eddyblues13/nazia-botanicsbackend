@@ -42,4 +42,9 @@ return [
         'folder' => env('CLOUDINARY_FOLDER', 'naziabotanics'),
     ],
 
+    'paystack' => [
+        'secret' => env('PAYSTACK_SECRET_KEY'),
+        'public' => env('PAYSTACK_PUBLIC_KEY'),
+    ],
+
 ];

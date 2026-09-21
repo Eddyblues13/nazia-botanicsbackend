@@ -19,6 +19,15 @@ class AdminOrderResource extends JsonResource
             'delivery_address' => $this->delivery_address,
             'note' => $this->note,
             'subtotal' => $this->subtotal,
+            'delivery_state' => $this->delivery_state,
+            'delivery_fee' => $this->delivery_fee,
+            'delivery_period' => $this->delivery_period,
+            'total' => $this->total,
+            'payment_status' => $this->payment_status,
+            'payment_channel' => $this->payment_channel,
+            'payment_reference' => $this->payment_reference,
+            'amount_paid' => $this->amount_paid,
+            'paid_at' => $this->paid_at?->toIso8601String(),
             'placed_at' => $this->created_at?->toIso8601String(),
             // Present on list rows via withCount, so the table can show a
             // line count without loading every item.

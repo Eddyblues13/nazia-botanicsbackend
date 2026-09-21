@@ -2,8 +2,8 @@
   <p style="margin:0 0 14px;font-size:19px;">Thank you, {{ $order->customer_name }}.</p>
 
   <p style="margin:0 0 18px;">
-    We have your order and will confirm it personally, along with the delivery
-    cost for your address, shortly.
+    Your payment came through and your order is confirmed. We are preparing your
+    bottles now{{ $order->delivery_period ? ', and they should reach you in '.$order->delivery_period : '' }}.
   </p>
 
   <p style="margin:0 0 6px;color:#6d6d6d;font-size:13px;">Order reference</p>
@@ -26,8 +26,16 @@
       </tr>
     @endforeach
     <tr>
-      <td style="padding:12px 0;"><strong>Subtotal</strong></td>
-      <td align="right" style="padding:12px 0;"><strong>&#8358;{{ number_format($order->subtotal) }}</strong></td>
+      <td style="padding:12px 0 4px;color:#6d6d6d;">Subtotal</td>
+      <td align="right" style="padding:12px 0 4px;color:#6d6d6d;">&#8358;{{ number_format($order->subtotal) }}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#6d6d6d;">Delivery{{ $order->delivery_state ? ' · '.$order->delivery_state : '' }}</td>
+      <td align="right" style="padding:4px 0;color:#6d6d6d;">&#8358;{{ number_format($order->delivery_fee) }}</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 0 0;border-top:1px solid #f4f2ee;"><strong>Paid</strong></td>
+      <td align="right" style="padding:10px 0 0;border-top:1px solid #f4f2ee;"><strong>&#8358;{{ number_format($order->total) }}</strong></td>
     </tr>
   </table>
 
@@ -40,6 +48,7 @@
   </a>
 
   <p style="margin:22px 0 0;color:#6d6d6d;font-size:13px;">
-    Delivery is quoted when we confirm, so you always know the total before anything ships.
+    Paid in full, delivery included. Keep this reference and we will let you know
+    the moment your order is on its way.
   </p>
 </x-mail-layout>

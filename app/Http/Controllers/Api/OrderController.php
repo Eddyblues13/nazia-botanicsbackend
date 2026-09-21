@@ -6,17 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
-use App\Mail\OrderAlert;
-use App\Mail\OrderPlaced;
+use App\Models\DeliveryZone;
 use App\Models\Product;
-use App\Support\Notifier;
+use App\Services\Paystack;
+use App\Support\OrderPayments;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
-    public function store(StoreOrderRequest $request): JsonResponse
+    public function store(StoreOrderRequest $request, Paystack $paystack): JsonResponse
     {
         $data = $request->validated();
 
@@ -68,7 +71,20 @@ class OrderController extends Controller
             ];
         }
 
-        $order = DB::transaction(function () use ($data, $lines, $subtotal) {
+        // Delivery is priced from the zone table, so the customer cannot post
+        // their own fee and the promise shown at checkout is the one charged.
+        $zone = DeliveryZone::query()->active()->where('state', $data['delivery_state'])->first();
+
+        if (! $zone) {
+            throw ValidationException::withMessages([
+                'delivery_state' => 'We do not deliver to that state yet.',
+            ]);
+        }
+
+        $deliveryFee = $zone->fee;
+        $total = $subtotal + $deliveryFee;
+
+        $order = DB::transaction(function () use ($data, $lines, $subtotal, $zone, $deliveryFee, $total) {
             $order = Order::create([
                 'reference' => Order::generateReference(),
                 'customer_name' => $data['customer_name'],
@@ -78,6 +94,17 @@ class OrderController extends Controller
                 'note' => $data['note'] ?? null,
                 'subtotal' => $subtotal,
                 'status' => Order::STATUS_PENDING,
+                // Copied onto the order, not joined, so re-pricing a zone
+                // later never rewrites what a past customer was charged.
+                'delivery_state' => $zone->state,
+                'delivery_fee' => $deliveryFee,
+                'delivery_period' => $zone->delivery_period,
+                'total' => $total,
+                'payment_status' => Order::PAYMENT_PENDING,
+                // Distinct from the human-facing order reference: Paystack
+                // rejects a reference it has seen before, and a retried
+                // payment needs a fresh one.
+                'payment_reference' => 'NBP-'.Str::upper(Str::random(16)),
             ]);
 
             $order->items()->createMany($lines);
@@ -87,15 +114,74 @@ class OrderController extends Controller
 
         $order->load('items');
 
-        // Sent after the transaction commits, so nothing is ever announced that
-        // did not actually save. Failures are logged, never surfaced — the sale
-        // is already made.
-        Notifier::send($order->customer_email, new OrderPlaced($order), 'order confirmation');
-        Notifier::send(Notifier::team(), new OrderAlert($order), 'order alert');
+        // Nothing is announced yet. The confirmation emails wait until the
+        // money actually arrives, in OrderPayments::markPaid().
+        try {
+            $transaction = $paystack->initialize($order, $this->callbackUrl($order));
+        } catch (RuntimeException $e) {
+            OrderPayments::markFailed($order);
+
+            return response()->json([
+                'message' => 'We could not start the payment. Please try again.',
+            ], 502);
+        }
 
         return (new OrderResource($order))
+            ->additional([
+                'payment' => [
+                    'authorization_url' => $transaction['authorization_url'],
+                    'reference' => $order->payment_reference,
+                ],
+            ])
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Where Paystack sends the customer once they are done.
+     *
+     * Their order page, which asks us to verify on arrival.
+     */
+    private function callbackUrl(Order $order): string
+    {
+        return rtrim(config('app.frontend_url'), '/')."/order/{$order->reference}";
+    }
+
+    /**
+     * Confirms a payment on the customer's return.
+     *
+     * Landing on the callback URL proves nothing — anyone can type it — so the
+     * transaction is checked against Paystack before anything is believed.
+     * The webhook does the same job for customers who close the tab.
+     */
+    public function verifyPayment(Order $order, Paystack $paystack): JsonResponse
+    {
+        if ($order->payment_status === Order::PAYMENT_PAID) {
+            return response()->json(['data' => new OrderResource($order->load('items'))]);
+        }
+
+        if (blank($order->payment_reference)) {
+            return response()->json(['message' => 'This order has no payment to check.'], 422);
+        }
+
+        try {
+            $transaction = $paystack->verify($order->payment_reference);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => 'We could not reach Paystack. Please refresh in a moment.'], 502);
+        }
+
+        if (($transaction['status'] ?? null) !== 'success') {
+            OrderPayments::markFailed($order);
+
+            return response()->json([
+                'message' => 'That payment did not go through.',
+                'data' => new OrderResource($order->load('items')),
+            ], 402);
+        }
+
+        $order = OrderPayments::markPaid($order, $transaction);
+
+        return response()->json(['data' => new OrderResource($order->load('items'))]);
     }
 
     public function show(Order $order): OrderResource

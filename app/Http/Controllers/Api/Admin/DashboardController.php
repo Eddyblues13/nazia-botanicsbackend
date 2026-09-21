@@ -26,7 +26,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'data' => [
-                'revenue_total' => (int) Order::whereIn('status', Order::REVENUE_STATUSES)->sum('subtotal'),
+                'revenue_total' => (int) Order::where('payment_status', Order::PAYMENT_PAID)->sum('total'),
                 'revenue_this_month' => $revenueThisMonth,
                 'revenue_last_month' => $revenueLastMonth,
                 'revenue_change' => $this->percentageChange($revenueLastMonth, $revenueThisMonth),
@@ -76,7 +76,7 @@ class DashboardController extends Controller
     private function profit(): array
     {
         $base = \App\Models\OrderItem::query()
-            ->whereHas('order', fn ($q) => $q->whereIn('status', Order::REVENUE_STATUSES));
+            ->whereHas('order', fn ($q) => $q->where('payment_status', Order::PAYMENT_PAID));
 
         $costedRevenue = (int) (clone $base)->whereNotNull('line_cost')->sum('line_total');
         $costTotal = (int) (clone $base)->whereNotNull('line_cost')->sum('line_cost');
@@ -97,18 +97,26 @@ class DashboardController extends Controller
         ];
     }
 
+    /**
+     * Revenue counts paid orders only.
+     *
+     * An order that was never paid for shares its `status` with a real one
+     * until the money lands, so counting by status would book every abandoned
+     * checkout as income. It is dated by `paid_at` for the same reason — that
+     * is when the money arrived, which is rarely the moment the cart was filled.
+     */
     private function revenueSince(\DateTimeInterface $from): int
     {
-        return (int) Order::whereIn('status', Order::REVENUE_STATUSES)
-            ->where('created_at', '>=', $from)
-            ->sum('subtotal');
+        return (int) Order::where('payment_status', Order::PAYMENT_PAID)
+            ->where('paid_at', '>=', $from)
+            ->sum('total');
     }
 
     private function revenueBetween(\DateTimeInterface $from, \DateTimeInterface $to): int
     {
-        return (int) Order::whereIn('status', Order::REVENUE_STATUSES)
-            ->whereBetween('created_at', [$from, $to])
-            ->sum('subtotal');
+        return (int) Order::where('payment_status', Order::PAYMENT_PAID)
+            ->whereBetween('paid_at', [$from, $to])
+            ->sum('total');
     }
 
     /**

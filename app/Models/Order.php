@@ -8,6 +8,25 @@ use Illuminate\Support\Str;
 
 class Order extends Model
 {
+    /**
+     * Payment state, tracked separately from fulfilment `status`: an order can
+     * be paid but not yet shipped, or abandoned before it was ever paid.
+     */
+    public const PAYMENT_UNPAID = 'unpaid';
+
+    public const PAYMENT_PENDING = 'pending';
+
+    public const PAYMENT_PAID = 'paid';
+
+    public const PAYMENT_FAILED = 'failed';
+
+    public const PAYMENT_STATUSES = [
+        self::PAYMENT_UNPAID,
+        self::PAYMENT_PENDING,
+        self::PAYMENT_PAID,
+        self::PAYMENT_FAILED,
+    ];
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_CONFIRMED = 'confirmed';
@@ -45,12 +64,25 @@ class Order extends Model
         'note',
         'subtotal',
         'status',
+        'delivery_state',
+        'delivery_fee',
+        'delivery_period',
+        'total',
+        'payment_status',
+        'payment_reference',
+        'payment_channel',
+        'amount_paid',
+        'paid_at',
     ];
 
     protected function casts(): array
     {
         return [
             'subtotal' => 'integer',
+            'delivery_fee' => 'integer',
+            'total' => 'integer',
+            'amount_paid' => 'integer',
+            'paid_at' => 'datetime',
         ];
     }
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Api\Admin\AuthController;
 use App\Http\Controllers\Api\Admin\ContactMessageController;
 use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\DeliveryZoneController as AdminDeliveryZoneController;
 use App\Http\Controllers\Api\Admin\NewsletterController as AdminNewsletterController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
@@ -14,7 +15,9 @@ use App\Http\Controllers\Api\Admin\WaitlistController as AdminWaitlistController
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\NewsletterController;
+use App\Http\Controllers\Api\DeliveryZoneController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PaystackWebhookController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\WaitlistController;
@@ -35,8 +38,18 @@ Route::get('articles/{article}', [ArticleController::class, 'show']);
 Route::get('reviews', [ReviewController::class, 'index']);
 Route::post('reviews', [ReviewController::class, 'store'])->middleware('throttle:5,1');
 
+Route::get('delivery-zones', [DeliveryZoneController::class, 'index']);
+
 Route::post('orders', [OrderController::class, 'store'])->middleware('throttle:10,1');
 Route::get('orders/{order}', [OrderController::class, 'show']);
+// Called when the customer returns from Paystack. Rate-limited because it is
+// public and reaches out to Paystack on each call.
+Route::post('orders/{order}/verify-payment', [OrderController::class, 'verifyPayment'])
+    ->middleware('throttle:20,1');
+
+// Paystack's own callback. No auth and no throttle: it authenticates itself
+// with a signature, and throttling it would lose payments.
+Route::post('paystack/webhook', PaystackWebhookController::class);
 
 Route::post('contact', [ContactController::class, 'store'])->middleware('throttle:5,1');
 Route::post('waitlist', [WaitlistController::class, 'store'])->middleware('throttle:5,1');
@@ -93,6 +106,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('subscribers/export', [AdminNewsletterController::class, 'export']);
         Route::get('subscribers', [AdminNewsletterController::class, 'index']);
         Route::delete('subscribers/{subscriber}', [AdminNewsletterController::class, 'destroy']);
+
+        Route::get('delivery-zones', [AdminDeliveryZoneController::class, 'index']);
+        Route::post('delivery-zones', [AdminDeliveryZoneController::class, 'store']);
+        Route::put('delivery-zones/{deliveryZone}', [AdminDeliveryZoneController::class, 'update']);
+        Route::delete('delivery-zones/{deliveryZone}', [AdminDeliveryZoneController::class, 'destroy']);
 
         // Team management is owner-only.
         Route::middleware('admin.role:owner')->group(function () {
